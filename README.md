@@ -13,7 +13,7 @@ Installation
 Link package in composer.json, e.g.
 
 ```sh
-composer require propa/tcpdi
+composer require chachanagov/tcpdi
 ```
 
 Usage
