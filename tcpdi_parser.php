@@ -864,9 +864,8 @@ class tcpdi_parser
                 }
                 break;
             }
-            default:
-            {
-                $frag = $data[$offset] . @$data[$offset + 1] . @$data[$offset + 2] . @$data[$offset + 3];
+            default: {
+                $frag = substr($data, $offset, 4);
                 switch ($frag) {
                     case 'endo':
                         // indirect object
@@ -1320,7 +1319,7 @@ class tcpdi_parser
             }
         }
 
-        if ($annots[0] == PDF_TYPE_OBJREF) {
+        if (isset($annots[0]) && $annots[0] == PDF_TYPE_OBJREF){
             return $this->getObjectVal($annots);
         }
         return $annots;
