@@ -345,16 +345,14 @@ class tcpdi_parser
                 $this->Error('Unable to find startxref');
             }
             $startxref = $matches[1];
+        } elseif (preg_match('/([0-9]+[\s][0-9]+[\s]obj)/i', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+            // Cross-Reference Stream object
+            $startxref = $offset;
+        } elseif (preg_match('/[\r\n]startxref[\s\r\n]+([0-9]+)[\s\r\n]+%%EOF/i', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $offset)) {
+            // startxref found
+            $startxref = $matches[1][0];
         } else {
-            if (preg_match('/([0-9]+[\s][0-9]+[\s]obj)/i', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $offset)) {
-                // Cross-Reference Stream object
-                $startxref = $offset;
-            } elseif (preg_match('/[\r\n]startxref[\s\r\n]+([0-9]+)[\s\r\n]+%%EOF/i', $this->pdfdata, $matches, PREG_OFFSET_CAPTURE, $offset)) {
-                // startxref found
-                $startxref = $matches[1][0];
-            } else {
-                $this->Error('Unable to find startxref');
-            }
+            $this->Error('Unable to find startxref');
         }
         unset($matches);
 
@@ -1217,8 +1215,8 @@ class tcpdi_parser
         // decode the stream
         $remaining_filters = [];
         foreach ($filters as $filter) {
-            if (in_array($filter, $this->FilterDecoders->getAvailableFilters())) {
-                $stream = $this->FilterDecoders->decodeFilter($filter, $stream);
+            if (in_array($filter, $this->FilterDecoders::getAvailableFilters())) {
+                $stream = $this->FilterDecoders::decodeFilter($filter, $stream);
             } else {
                 // add missing filter to array
                 $remaining_filters[] = $filter;
@@ -1273,17 +1271,17 @@ class tcpdi_parser
                 return $res[1];
             }
             return $res;
-        } else {
-            if (!isset ($obj[1][1]['/Parent'])) {
-                return false;
-            } else {
-                $res = $this->_getPageResources($obj[1][1]['/Parent']);
-                if ($res[0] == PDF_TYPE_OBJECT) {
-                    return $res[1];
-                }
-                return $res;
-            }
         }
+
+        if (!isset ($obj[1][1]['/Parent'])) {
+            return false;
+        }
+
+        $res = $this->_getPageResources($obj[1][1]['/Parent']);
+        if ($res[0] == PDF_TYPE_OBJECT) {
+            return $res[1];
+        }
+        return $res;
     }
 
     /**
@@ -1311,12 +1309,10 @@ class tcpdi_parser
         // parent object.
         if (isset ($obj[1][1]['/Annots'])) {
             $annots = $obj[1][1]['/Annots'];
+        } elseif (!isset ($obj[1][1]['/Parent'])) {
+            return false;
         } else {
-            if (!isset ($obj[1][1]['/Parent'])) {
-                return false;
-            } else {
-                $annots = $this->_getPageAnnotations($obj[1][1]['/Parent']);
-            }
+            $annots = $this->_getPageAnnotations($obj[1][1]['/Parent']);
         }
 
         if (isset($annots[0]) && $annots[0] == PDF_TYPE_OBJREF){
@@ -1417,15 +1413,11 @@ class tcpdi_parser
      * @param array $page a /Page
      * @param string $box_index Type of Box @see $availableBoxes
      * @param float Scale factor from user space units to points
-     * @return array
      */
     public function getPageBox($page, $box_index, $k)
     {
         $page = $this->getObjectVal($page);
-        $box = null;
-        if (isset($page[1][1][$box_index])) {
-            $box =& $page[1][1][$box_index];
-        }
+        $box = $page[1][1][$box_index] ?? null;
 
         if (!is_null($box) && $box[0] == PDF_TYPE_OBJREF) {
             $tmp_box = $this->getObjectVal($box);
@@ -1444,11 +1436,13 @@ class tcpdi_parser
                 'urx' => max($b[0][1], $b[2][1]) / $k,
                 'ury' => max($b[1][1], $b[3][1]) / $k,
             ];
-        } elseif (!isset ($page[1][1]['/Parent'])) {
-            return false;
-        } else {
-            return $this->getPageBox($this->getObjectVal($page[1][1]['/Parent']), $box_index, $k);
         }
+
+        if (!isset ($page[1][1]['/Parent'])) {
+            return false;
+        }
+
+        return $this->getPageBox($this->getObjectVal($page[1][1]['/Parent']), $box_index, $k);
     }
 
     /**
@@ -1502,17 +1496,17 @@ class tcpdi_parser
                 return $res[1];
             }
             return $res;
-        } else {
-            if (!isset ($obj[1][1]['/Parent'])) {
-                return false;
-            } else {
-                $res = $this->_getPageRotation($obj[1][1]['/Parent']);
-                if (is_array($res) && $res[0] == PDF_TYPE_OBJECT) {
-                    return $res[1];
-                }
-                return $res;
-            }
         }
+
+        if (!isset ($obj[1][1]['/Parent'])) {
+            return false;
+        }
+
+        $res = $this->_getPageRotation($obj[1][1]['/Parent']);
+        if (is_array($res) && $res[0] == PDF_TYPE_OBJECT) {
+            return $res[1];
+        }
+        return $res;
     }
 
     /**
